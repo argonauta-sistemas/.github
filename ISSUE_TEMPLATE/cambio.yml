@@ -1,0 +1,24 @@
+name: Pedido de cambio
+description: Algo nuevo o distinto que el negocio necesita
+labels: ["pedido"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué problema resuelve
+      description: Qué pasa hoy sin este cambio. Un caso concreto ayuda más que una idea general.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Qué se imagina
+      description: Cómo debería funcionar, si ya hay una idea.
+  - type: dropdown
+    id: urgencia
+    attributes:
+      label: Para cuándo
+      options:
+        - Lo antes posible
+        - Este mes
+        - Cuando se pueda

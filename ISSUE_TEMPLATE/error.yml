@@ -1,0 +1,37 @@
+name: Algo no funciona
+description: Un error en un sistema que ya está en uso
+labels: ["error"]
+body:
+  - type: textarea
+    id: que
+    attributes:
+      label: Qué pasó
+      description: Qué esperabas que pasara y qué pasó en cambio.
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Cómo se reproduce
+      description: Los pasos, en orden. No pegues datos personales de nadie.
+      placeholder: |
+        1. Entré a...
+        2. Pulsé...
+        3. Apareció...
+    validations:
+      required: true
+  - type: input
+    id: donde
+    attributes:
+      label: Dónde
+      description: La pantalla o la dirección, y el celular o navegador.
+  - type: dropdown
+    id: gravedad
+    attributes:
+      label: Qué tan grave es
+      options:
+        - No se puede trabajar
+        - Molesta, pero hay una forma de seguir
+        - Es un detalle
+    validations:
+      required: true
