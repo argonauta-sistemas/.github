@@ -24,7 +24,7 @@ todo lo de abajo lo revisa una máquina.
      Argonauta se quita como miembro.
 
   El paso a paso está en la skill `arranque` (`references/cuentas.md`) de
-  [biblioteca-skills](https://github.com/teamargo2025-jpg/biblioteca-skills).
+  [biblioteca-skills](https://github.com/argonauta-sistemas/biblioteca-skills).
 - **El código** vive en esta organización y es de Argonauta Sistemas; el
   cliente tiene una licencia de uso, salvo que el acuerdo diga otra cosa.
 
