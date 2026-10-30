@@ -1,0 +1,45 @@
+name: Tarea
+description: Trabajo interno del equipo, con dueño en el tablero
+labels: ["tarea"]
+projects: ["argonauta-sistemas/1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Asígnate el issue antes de empezar: el dueño es el candado de la tarea.
+        Si ya tiene dueño, no la tomes.
+  - type: textarea
+    id: que
+    attributes:
+      label: Qué hay que hacer
+      description: El cambio, en dos o tres líneas, y por qué hace falta.
+    validations:
+      required: true
+  - type: textarea
+    id: terminado
+    attributes:
+      label: Está terminado cuando
+      description: Lo que se puede comprobar al final (en línea, en un test, en el tablero).
+    validations:
+      required: true
+  - type: dropdown
+    id: carril
+    attributes:
+      label: Carril
+      description: Lo que separa un contrato se puede hacer en paralelo; lo demás, no.
+      options:
+        - Gimnasios
+        - Argonauts
+        - Clientes a medida
+        - Conocimiento y decisiones
+        - Oficina de agentes
+    validations:
+      required: true
+  - type: checkboxes
+    id: cuidado
+    attributes:
+      label: Qué toca
+      description: Ayuda a saber quién revisa y con cuánto cuidado.
+      options:
+        - label: Migraciones de una base (un solo dueño a la vez)
+        - label: Login, permisos, pagos o datos personales
