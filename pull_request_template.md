@@ -1,3 +1,5 @@
+Cierra #<!-- número del issue. Si no hay issue, créalo antes con la plantilla "Tarea". -->
+
 ## Qué cambia
 
 <!-- Qué hace este PR, en dos o tres líneas. -->

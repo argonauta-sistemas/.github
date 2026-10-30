@@ -30,20 +30,36 @@ todo lo de abajo lo revisa una máquina.
 
 ## 2. Cómo se hace un cambio
 
-1. **Una rama por cambio:** `feat/...` (algo nuevo), `fix/...` (un arreglo) o
-   `docs/...` (documentación). Nada directo a `main`: cada push a `main`
-   publica.
-2. **Commits en español, en infinitivo**, diciendo qué cambia y por qué
+1. **Issue con dueño** en el tablero
+   [Cola de trabajo](https://github.com/orgs/argonauta-sistemas/projects/1),
+   con la plantilla "Tarea". Quien se asigna el issue es su dueño: si tiene
+   dueño, otro no la toma.
+2. **Una rama por cambio**, en su propio worktree: `feat/...` (algo nuevo),
+   `fix/...` (un arreglo) o `docs/...` (documentación). Nada directo a
+   `main`: cada push a `main` publica.
+3. **Commits en español, en infinitivo**, diciendo qué cambia y por qué
    ("Cerrar la lectura anónima de los datos de los socios").
-3. **Pull Request** con la plantilla: qué cambia, por qué y cómo se probó.
-4. **La revisión automática (CI) en verde** antes de mezclar: lint, formato,
+4. **Pull Request** con la plantilla: el issue que cierra, qué cambia, por
+   qué y cómo se probó. Quien lo abre se lo asigna y lo agrega al tablero.
+5. **La revisión automática (CI) en verde** antes de mezclar: lint, formato,
    tests y build. No se mezcla un PR en rojo.
-5. **Merge normal.** Squash solo si el repo no usa `.git-blame-ignore-revs`.
-6. **Después del merge**, comprobar en línea que el cambio llegó.
+6. **Comentario del Revisor**, el agente de revisión. Comenta, no aprueba; si
+   no está disponible, no bloquea.
+7. **Aprobación del otro socio.** Nadie mezcla su propio PR sin ella.
+8. **Merge normal.** Squash solo si el repo no usa `.git-blame-ignore-revs`.
+9. **Después del merge**, comprobar en línea que el cambio llegó.
+
+**Máximo 2 PRs abiertos por persona.** Antes de abrir un tercero, se cierra
+uno. La vista "PRs abiertos por persona" del tablero lo muestra.
+
+**Los agentes proponen, nunca deciden.** El usuario `argonauta-bot` abre
+issues y comenta, pero no tiene permiso de merge.
 
 > En el plan gratuito de GitHub, la protección de ramas solo existe en repos
-> públicos. En los privados, la regla de "todo por PR con CI en verde" la
-> sostienen esta guía, las plantillas y los hooks de Claude Code de cada repo.
+> públicos: en `.github` y `biblioteca-skills` ya exige PR y la aprobación de
+> otra persona, también a los administradores. En los privados, la regla la
+> sostienen esta guía, las plantillas y los hooks de Claude Code de cada repo,
+> hasta que se decida un plan de pago.
 
 ## 3. Un cambio está terminado cuando
 
@@ -99,5 +115,6 @@ antes.
 | Definir un proyecto nuevo | skill `metis` |
 | Montar el repo con este estándar | skill `arranque` |
 | Revisar antes de lanzar | skill `lanzamiento` |
-| Seguimiento | el tablero de Trello de Argonauta |
+| Tareas de construcción | el tablero "Cola de trabajo" de GitHub Projects |
+| Seguimiento de clientes | el tablero de Trello de Argonauta |
 | Contraseñas | Bitwarden |
