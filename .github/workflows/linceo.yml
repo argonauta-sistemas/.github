@@ -1,0 +1,238 @@
+# Linceo · revisor de PRs de Argonauta Sistemas.
+# Workflow reutilizable: cada repo lo llama con agentes/linceo/llamada.yml.
+# Ficha: conocimiento/agentes/linceo.md. Guía: agentes/linceo/README.md.
+name: Linceo
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Rama o etiqueta de argonauta-sistemas/.github de donde salen las instrucciones.
+        type: string
+        default: main
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+
+permissions: {}
+
+env:
+  # Lo que Linceo no lee ni cuenta. Se aplica igual al filtro, al diff y a Read.
+  NO_LEE: '(^|/)(dist|node_modules)/|(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|deno\.lock|npm-shrinkwrap\.json)$|(^|/)(database\.types|supabase\.types|database\.gen|supabase)\.ts$'
+  # Lo que por sí solo no amerita revisión: documentación e imágenes.
+  SIN_CODIGO: '\.(md|png|jpe?g|gif|webp|avif|svg|ico|bmp)$'
+  # Rutas de riesgo: migraciones, RLS, funciones, autenticación y pagos.
+  RIESGO: '(^|/)supabase/migrations/|(^|/)functions/|rls|polic|auth|login|sesion|session|pago|payment|cobranza|cobro|billing|checkout|factura'
+  TOPE_LINEAS: 800
+
+jobs:
+  preparar:
+    name: Preparar
+    # Nunca en borradores; con la etiqueta, solo si la etiqueta puesta es "linceo".
+    if: >-
+      github.event_name == 'pull_request' &&
+      !github.event.pull_request.draft &&
+      !contains(github.event.pull_request.labels.*.name, 'sin-linceo') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'linceo')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      revisar: ${{ steps.clasificar.outputs.revisar }}
+      modelo: ${{ steps.clasificar.outputs.modelo }}
+      esfuerzo: ${{ steps.clasificar.outputs.esfuerzo }}
+    steps:
+      - name: Clasificar archivos y elegir modelo
+        id: clasificar
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$REPO/pulls/$PR/files" \
+            --jq '.[] | [.filename, (.additions + .deletions)] | @tsv' > archivos.tsv
+
+          # Archivos que Linceo sí revisa.
+          awk -F'\t' '$1 !~ ENVIRON["NO_LEE"] && tolower($1) !~ ENVIRON["SIN_CODIGO"]' archivos.tsv > revisables.tsv
+          archivos=$(wc -l < revisables.tsv)
+          lineas=$(awk -F'\t' '{s += $2} END {print s + 0}' revisables.tsv)
+
+          if [ "$archivos" -eq 0 ]; then
+            echo "revisar=false" >> "$GITHUB_OUTPUT"
+            echo "Linceo se salta este PR: solo toca documentación, lockfiles, imágenes o archivos generados." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ "$lineas" -gt "$TOPE_LINEAS" ]; then
+            echo "revisar=false" >> "$GITHUB_OUTPUT"
+            gh pr comment "$PR" --repo "$REPO" \
+              --body "Linceo · Divide este PR: tiene $lineas líneas revisables y el tope es $TOPE_LINEAS."
+            echo "Linceo no revisó: $lineas líneas revisables (tope $TOPE_LINEAS). Costo: \$0." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if awk -F'\t' 'tolower($1) ~ ENVIRON["RIESGO"] {hay = 1} END {exit !hay}' revisables.tsv; then
+            modelo=claude-opus-5-5; esfuerzo=medium
+          else
+            modelo=claude-sonnet-5-5; esfuerzo=low
+          fi
+          {
+            echo "revisar=true"
+            echo "modelo=$modelo"
+            echo "esfuerzo=$esfuerzo"
+          } >> "$GITHUB_OUTPUT"
+          echo "Linceo revisará $archivos archivos ($lineas líneas) con $modelo, esfuerzo $esfuerzo." >> "$GITHUB_STEP_SUMMARY"
+
+  revisar:
+    name: Revisar
+    needs: preparar
+    if: needs.preparar.outputs.revisar == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      MODELO: ${{ needs.preparar.outputs.modelo }}
+      ESFUERZO: ${{ needs.preparar.outputs.esfuerzo }}
+    steps:
+      - name: Comprobar la llave
+        id: llave
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "hay=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Linceo no revisó: falta el secreto ANTHROPIC_API_KEY en este repo."
+            echo "Linceo no revisó: falta el secreto \`ANTHROPIC_API_KEY\`. No bloquea el merge." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "hay=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Traer el PR
+        if: steps.llave.outputs.hay == 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Traer las instrucciones de Linceo
+        if: steps.llave.outputs.hay == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: argonauta-sistemas/.github
+          ref: ${{ inputs.version }}
+          path: .linceo
+          sparse-checkout: agentes/linceo
+          persist-credentials: false
+
+      - name: Armar el diff
+        id: diff
+        if: steps.llave.outputs.hay == 'true'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Solo los archivos revisables, con el mismo filtro que en Preparar.
+          git diff --name-only "$BASE...$HEAD" \
+            | awk '$0 !~ ENVIRON["NO_LEE"] && tolower($0) !~ ENVIRON["SIN_CODIGO"]' > "$RUNNER_TEMP/revisables.txt"
+          xargs -d '\n' -a "$RUNNER_TEMP/revisables.txt" \
+            git diff --no-color --unified=3 "$BASE...$HEAD" -- > "$RUNNER_TEMP/linceo.diff"
+          {
+            echo "texto<<LINCEO_FIN_DEL_DIFF"
+            cat "$RUNNER_TEMP/linceo.diff"
+            echo "LINCEO_FIN_DEL_DIFF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Linceo
+        id: claude
+        if: steps.llave.outputs.hay == 'true'
+        # Sin saldo o con la llave mala, falla este paso y el job sigue: no bloquea el merge.
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          # Las instrucciones van en el system prompt, que es estable y se cachea.
+          # El mensaje solo lleva lo que cambia en cada PR.
+          prompt: |
+            Repositorio: ${{ github.repository }}
+            PR #${{ github.event.pull_request.number }}
+            El PR ya está en el directorio de trabajo.
+
+            <diff>
+            ${{ steps.diff.outputs.texto }}
+            </diff>
+          claude_args: >-
+            --model ${{ env.MODELO }}
+            --effort ${{ env.ESFUERZO }}
+            --max-turns 10
+            --system-prompt-file .linceo/agentes/linceo/instrucciones.md
+            --tools Read,Grep,Glob
+            --json-schema '{"type":"object","properties":{"comentario":{"type":"string"}},"required":["comentario"]}'
+          settings: |
+            {
+              "permissions": {
+                "deny": [
+                  "Read(./.linceo/**)",
+                  "Read(**/dist/**)",
+                  "Read(**/node_modules/**)",
+                  "Read(**/package-lock.json)",
+                  "Read(**/npm-shrinkwrap.json)",
+                  "Read(**/pnpm-lock.yaml)",
+                  "Read(**/yarn.lock)",
+                  "Read(**/bun.lock)",
+                  "Read(**/bun.lockb)",
+                  "Read(**/deno.lock)",
+                  "Read(**/database.types.ts)",
+                  "Read(**/supabase.types.ts)",
+                  "Read(**/database.gen.ts)",
+                  "Read(**/types/supabase.ts)"
+                ]
+              }
+            }
+
+      - name: Publicar el comentario
+        if: steps.claude.outcome == 'success' && steps.claude.outputs.structured_output != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          SALIDA: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          comentario=$(jq -r '.comentario // ""' <<< "$SALIDA")
+          case "$comentario" in
+            "Linceo · "*)
+              gh pr comment "$PR" --repo "$REPO" --body "$comentario" ;;
+            *)
+              echo "::warning::Linceo respondió fuera de formato; no se publicó."
+              echo "Linceo respondió fuera de formato; no se publicó el comentario." >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
+
+      - name: Registrar el costo
+        if: always() && steps.llave.outputs.hay == 'true'
+        env:
+          RESULTADO: ${{ steps.claude.outcome }}
+          EJECUCION: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          {
+            echo "### Linceo · costo de la revisión"
+            echo
+            echo "| Modelo | Esfuerzo | Resultado | Turnos | Costo (USD) | Entrada | Salida | Caché leído | Caché escrito |"
+            echo "|---|---|---|---|---|---|---|---|---|"
+            if [ -n "$EJECUCION" ] && [ -f "$EJECUCION" ]; then
+              jq -r --arg m "$MODELO" --arg e "$ESFUERZO" --arg r "$RESULTADO" '
+                [.[] | select(.type == "result")] | last // {} |
+                "| \($m) | \($e) | \($r) | \(.num_turns // "?") | \(.total_cost_usd // "?") | \(.usage.input_tokens // "?") | \(.usage.output_tokens // "?") | \(.usage.cache_read_input_tokens // "?") | \(.usage.cache_creation_input_tokens // "?") |"
+              ' "$EJECUCION"
+            else
+              echo "| $MODELO | $ESFUERZO | $RESULTADO | ? | ? | ? | ? | ? | ? |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$RESULTADO" != "success" ]; then
+            echo "::warning::Linceo no terminó la revisión (sin saldo, llave inválida o tope de turnos). No bloquea el merge."
+          fi

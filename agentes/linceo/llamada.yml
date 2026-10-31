@@ -1,0 +1,15 @@
+# Copiar tal cual en .github/workflows/linceo.yml del repo que se quiere revisar.
+name: Linceo
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, labeled]
+
+jobs:
+  linceo:
+    uses: argonauta-sistemas/.github/.github/workflows/linceo.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
