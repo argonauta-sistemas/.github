@@ -10,3 +10,9 @@ tengan los suyos propios:
 
 Este repositorio es público porque GitHub lo exige para que funcione. Solo
 lleva reglas y la vitrina: nunca nada de un cliente.
+
+Además guarda lo que comparten todos los repos y que GitHub no aplica solo:
+
+- `.github/workflows/linceo.yml` y `agentes/linceo/`: Linceo, el revisor de
+  PRs. Cada repo lo activa copiando `agentes/linceo/llamada.yml`; los pasos
+  están en [`agentes/linceo/README.md`](agentes/linceo/README.md).
