@@ -16,9 +16,13 @@ completa está en `conocimiento/agentes/linceo.md`.
    documentación, imágenes, lockfiles, `dist/`, `node_modules/` y tipos
    generados de Supabase. Si no queda nada, se salta el PR. Si quedan más de
    800 líneas, comenta `Linceo · Divide este PR` y no llama al modelo.
-2. **Elegir modelo por rutas.** Sonnet 5.5 con esfuerzo bajo por defecto.
-   Opus 5.5 con esfuerzo medio si algún archivo toca `supabase/migrations/`,
-   `functions/`, RLS o políticas, autenticación o pagos.
+2. **Solo lo delicado.** Linceo revisa con Opus 5.5, esfuerzo medio, los PRs
+   que tocan `supabase/migrations/`, `functions/`, RLS o políticas,
+   autenticación o pagos. Los demás no llaman al modelo ($0). En esos PRs
+   comenta que se revisen con `/code-review` en Claude Code, que va por la
+   suscripción. Con la etiqueta `linceo`, Linceo revisa cualquier PR con
+   Sonnet 5.5, esfuerzo bajo. Se decidió el 9 de noviembre de 2026 para no
+   gastar API en cada PR.
 3. **Revisar.** Corre la acción oficial `anthropics/claude-code-action@v1`
    con un máximo de 10 turnos, solo las herramientas `Read`, `Grep` y `Glob`,
    y las instrucciones como system prompt fijo (se cachea). El diff va en el

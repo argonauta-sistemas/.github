@@ -22,6 +22,9 @@ env:
   # Lo que por sí solo no amerita revisión: documentación e imágenes.
   SIN_CODIGO: '\.(md|png|jpe?g|gif|webp|avif|svg|ico|bmp)$'
   # Rutas de riesgo: migraciones, RLS, funciones, autenticación y pagos.
+  # Linceo solo revisa los PRs que tocan alguna. El resto se revisa con
+  # /code-review en Claude Code (suscripción, $0), o se le pide a Linceo con la
+  # etiqueta "linceo".
   RIESGO: '(^|/)supabase/migrations/|(^|/)functions/|rls|polic|auth|login|sesion|session|pago|payment|cobranza|cobro|billing|checkout|factura'
   TOPE_LINEAS: 800
 
@@ -50,6 +53,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          # true si alguien puso la etiqueta "linceo" para pedir la revisión.
+          PEDIDO: ${{ github.event.action == 'labeled' && github.event.label.name == 'linceo' }}
+          SIN_RIESGO: >-
+            Linceo · No reviso este PR: no toca migraciones, RLS, funciones,
+            login ni pagos. Revísalo con `/code-review` en Claude Code antes de
+            pedir la aprobación, o ponle la etiqueta `linceo` si quieres que lo mire.
         run: |
           gh api --paginate "repos/$REPO/pulls/$PR/files" \
             --jq '.[] | [.filename, (.additions + .deletions)] | @tsv' > archivos.tsv
@@ -65,18 +74,25 @@ jobs:
             exit 0
           fi
 
+          if awk -F'\t' 'tolower($1) ~ ENVIRON["RIESGO"] {hay = 1} END {exit !hay}' revisables.tsv; then
+            modelo=claude-opus-5-5; esfuerzo=medium
+          elif [ "$PEDIDO" = true ]; then
+            modelo=claude-sonnet-5-5; esfuerzo=low
+          else
+            # Nada delicado y nadie la pidió: no se gasta API (decisión del
+            # 9 nov 2026). El comentario recuerda revisarlo con /code-review.
+            echo "revisar=false" >> "$GITHUB_OUTPUT"
+            gh pr comment "$PR" --repo "$REPO" --body "$SIN_RIESGO"
+            echo "Linceo se salta este PR: no toca rutas delicadas. Costo: \$0." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           if [ "$lineas" -gt "$TOPE_LINEAS" ]; then
             echo "revisar=false" >> "$GITHUB_OUTPUT"
             gh pr comment "$PR" --repo "$REPO" \
               --body "Linceo · Divide este PR: tiene $lineas líneas revisables y el tope es $TOPE_LINEAS."
             echo "Linceo no revisó: $lineas líneas revisables (tope $TOPE_LINEAS). Costo: \$0." >> "$GITHUB_STEP_SUMMARY"
             exit 0
-          fi
-
-          if awk -F'\t' 'tolower($1) ~ ENVIRON["RIESGO"] {hay = 1} END {exit !hay}' revisables.tsv; then
-            modelo=claude-opus-5-5; esfuerzo=medium
-          else
-            modelo=claude-sonnet-5-5; esfuerzo=low
           fi
           {
             echo "revisar=true"

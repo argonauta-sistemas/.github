@@ -43,8 +43,11 @@ todo lo de abajo lo revisa una máquina.
    qué y cómo se probó. Quien lo abre se lo asigna y lo agrega al tablero.
 5. **La revisión automática (CI) en verde** antes de mezclar: lint, formato,
    tests y build. No se mezcla un PR en rojo.
-6. **Comentario del Revisor**, el agente de revisión. Comenta, no aprueba; si
-   no está disponible, no bloquea.
+6. **Una revisión antes de pedir la aprobación.** Si el PR toca migraciones,
+   RLS, funciones, login o pagos, la hace Linceo (el agente revisor) solo,
+   con la API. Si no, la haces tú con `/code-review` en Claude Code, que va
+   por la suscripción y no gasta API; o le pides a Linceo con la etiqueta
+   `linceo`. Linceo comenta, no aprueba, y si no está disponible no bloquea.
 7. **Aprobación del otro socio.** Nadie mezcla su propio PR sin ella.
 8. **Merge normal.** Squash solo si el repo no usa `.git-blame-ignore-revs`.
 9. **Después del merge**, comprobar en línea que el cambio llegó.
